@@ -4,8 +4,8 @@ import { _ as createRootRoute, d as HeadContent, g as createFileRoute, h as lazy
 import { r as TriangleAlert } from "../_libs/lucide-react.mjs";
 import { a as union, i as string, n as number, r as object, t as literal } from "../_libs/zod.mjs";
 import { t as Toaster } from "../_libs/sonner.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/router-Cu8ryDCX.js
-var router_Cu8ryDCX_exports = /* @__PURE__ */ __exportAll({ getRouter: () => getRouter });
+//#region node_modules/.nitro/vite/services/ssr/assets/router-BfduBpyi.js
+var router_BfduBpyi_exports = /* @__PURE__ */ __exportAll({ getRouter: () => getRouter });
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var FALLBACK_MESSAGE = "An unexpected error occurred. Try reloading the page.";
@@ -299,7 +299,7 @@ function PreviewHostBridge() {
 	}, [router]);
 	return null;
 }
-var styles_default = "/assets/styles-C2cKIw6Q.css";
+var styles_default = "/assets/styles-_DZOl8w7.css";
 var APP_NAME = "Aperture";
 var Route$1 = createRootRoute({
 	head: () => ({
@@ -313,6 +313,10 @@ var Route$1 = createRootRoute({
 			{
 				name: "description",
 				content: "Tech-fact video desk. Groq researches, writes, and voices the pack."
+			},
+			{
+				name: "referrer",
+				content: "no-referrer"
 			},
 			{
 				name: "theme-color",
@@ -334,8 +338,13 @@ var Route$1 = createRootRoute({
 				href: "/__grok/manifest.webmanifest"
 			},
 			{
-				rel: "apple-touch-icon",
-				href: "/__grok/icon-180.png"
+				rel: "preconnect",
+				href: "https://fonts.googleapis.com"
+			},
+			{
+				rel: "preconnect",
+				href: "https://fonts.gstatic.com",
+				crossOrigin: "anonymous"
 			},
 			{
 				rel: "stylesheet",
@@ -366,7 +375,7 @@ var Route$1 = createRootRoute({
 		})]
 	})
 });
-var $$splitComponentImporter = () => import("./routes-DVPRFZtz.mjs");
+var $$splitComponentImporter = () => import("./routes-CeHrEwhN.mjs");
 var rootRouteChildren = { IndexRoute: createFileRoute("/")({ component: lazyRouteComponent($$splitComponentImporter, "component") }).update({
 	id: "/",
 	path: "/",
@@ -380,4 +389,4 @@ function getRouter() {
 	});
 }
 //#endregion
-export { getRouter, router_Cu8ryDCX_exports as t };
+export { getRouter, router_BfduBpyi_exports as t };

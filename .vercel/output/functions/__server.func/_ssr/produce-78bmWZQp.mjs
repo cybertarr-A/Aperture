@@ -1,6 +1,6 @@
+import { a as assertGroqKey, i as STYLE_LOCK, l as isDomain, m as wordCount, n as LIMITS, o as clampText, p as sanitizeEpisode, u as redactSecrets } from "./sanitize-D806WHx3.mjs";
 import { n as TSS_SERVER_FUNCTION, t as createServerFn } from "./ssr.mjs";
-import { a as wordCount, r as STYLE_LOCK } from "./episode-BOYxOjLE.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/produce-kVWR-A_Y.js
+//#region node_modules/.nitro/vite/services/ssr/assets/produce-78bmWZQp.js
 var createServerRpc = (serverFnMeta, splitImportFn) => {
 	const url = "/_serverFn/" + serverFnMeta.id;
 	return Object.assign(splitImportFn, {
@@ -123,26 +123,43 @@ var EPISODE_JSON_SCHEMA = {
 		qaNotes: { type: "string" }
 	}
 };
-function requireKey(apiKey) {
-	const key = apiKey.trim();
-	if (key.length < 10) throw new Error("Paste a Groq Cloud API key first.");
-	return key;
+var VOICES = /* @__PURE__ */ new Set([
+	"austin",
+	"hannah",
+	"troy"
+]);
+function validateProduce(data) {
+	const domain = data.domain;
+	if (!isDomain(domain)) throw new Error("Unknown domain.");
+	if (data.aspectRatio !== "9:16" && data.aspectRatio !== "16:9") throw new Error("Aspect must be 9:16 or 16:9.");
+	if (data.durationSeconds !== 15 && data.durationSeconds !== 36) throw new Error("Duration must be 15 or 36 seconds.");
+	if (!VOICES.has(data.voice)) throw new Error("Unknown voice.");
+	return {
+		apiKey: assertGroqKey(data.apiKey),
+		topic: clampText(data.topic, LIMITS.topic),
+		domain,
+		aspectRatio: data.aspectRatio,
+		durationSeconds: data.durationSeconds,
+		voice: data.voice
+	};
 }
 function fail(e) {
-	if (e instanceof Error) throw new Error(e.message);
-	throw new Error("Groq request failed.");
+	const msg = e instanceof Error ? e.message : "Groq request failed.";
+	throw new Error(redactSecrets(msg));
 }
 var testGroqKey_createServerFn_handler = createServerRpc({
 	id: "4b3d8e784b31808f4aaf9eb31c6c668505f65f35627f1e45f9f971a8201d38a7",
 	name: "testGroqKey",
 	filename: "src/lib/produce.ts"
 }, (opts) => testGroqKey.__executeServer(opts));
-var testGroqKey = createServerFn({ method: "POST" }).validator((data) => data).handler(testGroqKey_createServerFn_handler, async ({ data }) => {
+var testGroqKey = createServerFn({ method: "POST" }).validator((data) => ({ apiKey: assertGroqKey(data.apiKey) })).handler(testGroqKey_createServerFn_handler, async ({ data }) => {
 	try {
-		const { groqListModels } = await import("./groq.server-DpKKL6V1.mjs");
+		const { enforceRateLimit } = await import("./guard.server-Cnzxxcih.mjs");
+		const { groqListModels } = await import("./groq.server-DRNRyRYv.mjs");
+		await enforceRateLimit(data.apiKey, "test");
 		return {
 			ok: true,
-			modelCount: (await groqListModels(requireKey(data.apiKey))).length
+			modelCount: await groqListModels(data.apiKey)
 		};
 	} catch (e) {
 		fail(e);
@@ -153,8 +170,10 @@ var produceEpisode_createServerFn_handler = createServerRpc({
 	name: "produceEpisode",
 	filename: "src/lib/produce.ts"
 }, (opts) => produceEpisode.__executeServer(opts));
-var produceEpisode = createServerFn({ method: "POST" }).validator((data) => data).handler(produceEpisode_createServerFn_handler, async ({ data }) => {
+var produceEpisode = createServerFn({ method: "POST" }).validator((data) => validateProduce(data)).handler(produceEpisode_createServerFn_handler, async ({ data }) => {
 	try {
+		const { enforceRateLimit } = await import("./guard.server-Cnzxxcih.mjs");
+		await enforceRateLimit(data.apiKey, "produce");
 		return await runProduce(data);
 	} catch (e) {
 		fail(e);
@@ -165,22 +184,29 @@ var speakScript_createServerFn_handler = createServerRpc({
 	name: "speakScript",
 	filename: "src/lib/produce.ts"
 }, (opts) => speakScript.__executeServer(opts));
-var speakScript = createServerFn({ method: "POST" }).validator((data) => data).handler(speakScript_createServerFn_handler, async ({ data }) => {
+var speakScript = createServerFn({ method: "POST" }).validator((data) => {
+	if (!VOICES.has(data.voice)) throw new Error("Unknown voice.");
+	return {
+		apiKey: assertGroqKey(data.apiKey),
+		text: clampText(data.text, LIMITS.speech),
+		voice: data.voice
+	};
+}).handler(speakScript_createServerFn_handler, async ({ data }) => {
 	try {
-		const { groqSpeech } = await import("./groq.server-DpKKL6V1.mjs");
-		const text = data.text.trim();
-		if (!text) throw new Error("Nothing to speak.");
-		return await groqSpeech(requireKey(data.apiKey), text, data.voice);
+		const { enforceRateLimit } = await import("./guard.server-Cnzxxcih.mjs");
+		const { groqSpeech } = await import("./groq.server-DRNRyRYv.mjs");
+		await enforceRateLimit(data.apiKey, "speak");
+		if (!data.text) throw new Error("Nothing to speak.");
+		return await groqSpeech(data.apiKey, data.text, data.voice);
 	} catch (e) {
 		fail(e);
 	}
 });
 async function runProduce(input) {
-	const { groqChat } = await import("./groq.server-DpKKL6V1.mjs");
-	const apiKey = requireKey(input.apiKey);
+	const { groqChat } = await import("./groq.server-DRNRyRYv.mjs");
 	const shotCount = input.durationSeconds === 36 ? 3 : 1;
 	const maxWords = input.durationSeconds === 36 ? 85 : 36;
-	const research = await groqChat(apiKey, {
+	const research = await groqChat(input.apiKey, {
 		model: "groq/compound",
 		messages: [{
 			role: "system",
@@ -194,7 +220,7 @@ Return a briefing with these headings:
 CLAIM — one falsifiable sentence
 MECHANISM — how it actually works
 CAVEAT — when the claim is false
-SOURCES — title and URL, at least two independent ones
+SOURCES — title and URL, at least two independent https sources
 CONFIDENCE — high, medium, or low
 VISUAL NOTES — real objects to film, not diagrams of internals we cannot see
 BANNED VISUALS — what the generator will hallucinate`
@@ -202,15 +228,17 @@ BANNED VISUALS — what the generator will hallucinate`
 			role: "user",
 			content: [
 				`Domain: ${input.domain === "any" ? "any technology" : input.domain}`,
-				input.topic.trim() ? `Requested topic: ${input.topic.trim()}` : "Pick the strongest unused fact in this domain.",
+				input.topic ? `Requested topic: ${input.topic}` : "Pick the strongest unused fact in this domain.",
 				`Format: ${input.aspectRatio}, ${input.durationSeconds}s, ${shotCount} shot(s).`
 			].join("\n")
 		}]
 	}, 9e4);
-	if (/^REJECT\b/i.test(research.content)) throw new Error(research.content.slice(0, 400));
-	const packed = await groqChat(apiKey, {
+	const briefing = clampText(research.content, LIMITS.research);
+	if (/^REJECT\b/i.test(briefing)) throw new Error(briefing.slice(0, 400));
+	const packed = await groqChat(input.apiKey, {
 		model: "openai/gpt-oss-120b",
 		temperature: .3,
+		max_tokens: 3500,
 		messages: [{
 			role: "system",
 			content: `You write production packs for short technological-fact videos.
@@ -229,10 +257,11 @@ Rules:
 - Do not invent numbers that are not in the briefing.
 - id like TF-YYYYMMDD-01.
 - onScreenText: 3 lines, each ≤ 6 words.
-- caption text ≤ 6 words each.`
+- caption text ≤ 6 words each.
+- Source URLs must be https.`
 		}, {
 			role: "user",
-			content: research.content
+			content: briefing
 		}],
 		response_format: {
 			type: "json_schema",
@@ -243,24 +272,24 @@ Rules:
 			}
 		}
 	}, 6e4);
-	let raw;
+	let parsed;
 	try {
-		raw = JSON.parse(packed.content);
+		parsed = JSON.parse(packed.content);
 	} catch {
 		throw new Error("Packager returned invalid JSON. Retry the generate.");
 	}
-	if (!raw.spokenScript || !raw.claim) throw new Error("Packager omitted required fields. Retry the generate.");
-	const script = raw.spokenScript.trim();
-	return {
-		...raw,
+	if (!parsed.spokenScript || !parsed.claim) throw new Error("Packager omitted required fields. Retry the generate.");
+	const script = clampText(parsed.spokenScript, LIMITS.script);
+	return sanitizeEpisode({
+		...parsed,
 		spokenScript: script,
 		wordCount: wordCount(script),
 		createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-		researchNotes: research.content,
+		researchNotes: briefing,
 		styleLock: STYLE_LOCK,
 		aspectRatio: input.aspectRatio,
 		durationSeconds: input.durationSeconds
-	};
+	});
 }
 //#endregion
 export { produceEpisode_createServerFn_handler, speakScript_createServerFn_handler, testGroqKey_createServerFn_handler };

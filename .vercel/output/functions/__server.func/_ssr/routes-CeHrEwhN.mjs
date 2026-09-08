@@ -1,15 +1,15 @@
 import { i as __toESM } from "../_runtime.mjs";
+import { a as assertGroqKey, c as episodeMarkdown, d as safeFilename, f as safeHttpsUrl, l as isDomain, n as LIMITS, o as clampText, r as SAMPLE_EPISODE, s as compactEpisode, t as DOMAINS, u as redactSecrets } from "./sanitize-D806WHx3.mjs";
 import { n as require_react } from "../_libs/@radix-ui/react-compose-refs+[...].mjs";
 import { y as require_jsx_runtime } from "../_libs/@tanstack/react-router+[...].mjs";
 import { n as TSS_SERVER_FUNCTION, r as getServerFnById, t as createServerFn } from "./ssr.mjs";
-import { i as episodeMarkdown, n as SAMPLE_EPISODE, t as DOMAINS } from "./episode-BOYxOjLE.mjs";
 import { a as Radio, c as Download, d as Aperture, i as Trash2, l as Copy, n as Volume2, o as LoaderCircle, s as KeyRound, t as X, u as Check } from "../_libs/lucide-react.mjs";
 import { n as toast } from "../_libs/sonner.mjs";
 import { t as Slot } from "../_libs/radix-ui__react-slot.mjs";
 import { n as clsx, t as cva } from "../_libs/class-variance-authority+clsx.mjs";
 import { t as twMerge } from "../_libs/tailwind-merge.mjs";
 import { n as create, t as persist } from "../_libs/zustand.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-DVPRFZtz.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-CeHrEwhN.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function cn(...inputs) {
@@ -136,9 +136,50 @@ var createSsrRpc = (functionId) => {
 		[TSS_SERVER_FUNCTION]: true
 	});
 };
-var testGroqKey = createServerFn({ method: "POST" }).validator((data) => data).handler(createSsrRpc("4b3d8e784b31808f4aaf9eb31c6c668505f65f35627f1e45f9f971a8201d38a7"));
-var produceEpisode = createServerFn({ method: "POST" }).validator((data) => data).handler(createSsrRpc("61b541fdabb3ac26b7f646f28374af003893c5c0dcca440637c19f67f42a5013"));
-var speakScript = createServerFn({ method: "POST" }).validator((data) => data).handler(createSsrRpc("c6b7a39f89062deaf28ad2788605c7f5bff057160dd85599b93ab8fe07318a9b"));
+var VOICES = /* @__PURE__ */ new Set([
+	"austin",
+	"hannah",
+	"troy"
+]);
+function validateProduce(data) {
+	const domain = data.domain;
+	if (!isDomain(domain)) throw new Error("Unknown domain.");
+	if (data.aspectRatio !== "9:16" && data.aspectRatio !== "16:9") throw new Error("Aspect must be 9:16 or 16:9.");
+	if (data.durationSeconds !== 15 && data.durationSeconds !== 36) throw new Error("Duration must be 15 or 36 seconds.");
+	if (!VOICES.has(data.voice)) throw new Error("Unknown voice.");
+	return {
+		apiKey: assertGroqKey(data.apiKey),
+		topic: clampText(data.topic, LIMITS.topic),
+		domain,
+		aspectRatio: data.aspectRatio,
+		durationSeconds: data.durationSeconds,
+		voice: data.voice
+	};
+}
+var testGroqKey = createServerFn({ method: "POST" }).validator((data) => ({ apiKey: assertGroqKey(data.apiKey) })).handler(createSsrRpc("4b3d8e784b31808f4aaf9eb31c6c668505f65f35627f1e45f9f971a8201d38a7"));
+var produceEpisode = createServerFn({ method: "POST" }).validator((data) => validateProduce(data)).handler(createSsrRpc("61b541fdabb3ac26b7f646f28374af003893c5c0dcca440637c19f67f42a5013"));
+var speakScript = createServerFn({ method: "POST" }).validator((data) => {
+	if (!VOICES.has(data.voice)) throw new Error("Unknown voice.");
+	return {
+		apiKey: assertGroqKey(data.apiKey),
+		text: clampText(data.text, LIMITS.speech),
+		voice: data.voice
+	};
+}).handler(createSsrRpc("c6b7a39f89062deaf28ad2788605c7f5bff057160dd85599b93ab8fe07318a9b"));
+var STORAGE = "aperture.groq.session";
+function readSessionKey() {
+	try {
+		return sessionStorage.getItem(STORAGE) ?? "";
+	} catch {
+		return "";
+	}
+}
+function writeSessionKey(key) {
+	try {
+		if (!key) sessionStorage.removeItem(STORAGE);
+		else sessionStorage.setItem(STORAGE, key);
+	} catch {}
+}
 var useStudio = create()(persist((set, get) => ({
 	apiKey: "",
 	keyOk: null,
@@ -152,13 +193,16 @@ var useStudio = create()(persist((set, get) => ({
 	status: "idle",
 	error: null,
 	audioUrl: null,
-	setApiKey: (apiKey) => set({
-		apiKey,
-		keyOk: null
-	}),
+	setApiKey: (apiKey) => {
+		writeSessionKey(apiKey);
+		set({
+			apiKey,
+			keyOk: null
+		});
+	},
 	setKeyOk: (keyOk) => set({ keyOk }),
 	setDomain: (domain) => set({ domain }),
-	setTopic: (topic) => set({ topic }),
+	setTopic: (topic) => set({ topic: topic.slice(0, LIMITS.topic) }),
 	setAspectRatio: (aspectRatio) => set({ aspectRatio }),
 	setDuration: (durationSeconds) => set({ durationSeconds }),
 	setVoice: (voice) => set({ voice }),
@@ -169,14 +213,20 @@ var useStudio = create()(persist((set, get) => ({
 		if (prev) URL.revokeObjectURL(prev);
 		set({ audioUrl });
 	},
-	loadSample: () => set({
-		current: SAMPLE_EPISODE,
-		audioUrl: null,
-		error: null
-	}),
+	hydrateSession: () => {
+		const apiKey = readSessionKey();
+		if (apiKey) set({ apiKey });
+	},
+	clearKey: () => {
+		writeSessionKey("");
+		set({
+			apiKey: "",
+			keyOk: null
+		});
+	},
 	saveEpisode: (ep) => set((s) => ({
 		current: ep,
-		library: [ep, ...s.library.filter((e) => e.id !== ep.id)].slice(0, 40),
+		library: [compactEpisode(ep), ...s.library.filter((e) => e.id !== ep.id)].slice(0, LIMITS.library),
 		status: "ready",
 		error: null,
 		audioUrl: null
@@ -196,17 +246,16 @@ var useStudio = create()(persist((set, get) => ({
 	name: "aperture-studio",
 	skipHydration: true,
 	partialize: (s) => ({
-		apiKey: s.apiKey,
 		domain: s.domain,
 		topic: s.topic,
 		aspectRatio: s.aspectRatio,
 		durationSeconds: s.durationSeconds,
 		voice: s.voice,
-		current: s.current,
-		library: s.library
+		current: s.current ? compactEpisode(s.current) : null,
+		library: s.library.map(compactEpisode).slice(0, LIMITS.library)
 	})
 }));
-function EpisodeView({ episode }) {
+var EpisodeView = (0, import_react.memo)(function EpisodeView({ episode }) {
 	const apiKey = useStudio((s) => s.apiKey);
 	const voice = useStudio((s) => s.voice);
 	const audioUrl = useStudio((s) => s.audioUrl);
@@ -217,6 +266,7 @@ function EpisodeView({ episode }) {
 			toast.error("Add a Groq Cloud API key to generate voice.");
 			return;
 		}
+		if (speaking) return;
 		setSpeaking(true);
 		try {
 			const { mime, base64 } = await speakScript({ data: {
@@ -228,7 +278,7 @@ function EpisodeView({ episode }) {
 			const url = URL.createObjectURL(new Blob([bin], { type: mime }));
 			setAudioUrl(url);
 		} catch (e) {
-			toast.error(e instanceof Error ? e.message : "Voice failed");
+			toast.error(redactSecrets(e instanceof Error ? e.message : "Voice failed"));
 		} finally {
 			setSpeaking(false);
 		}
@@ -238,10 +288,11 @@ function EpisodeView({ episode }) {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `${episode.id}.md`;
+		a.download = safeFilename(episode.id);
 		a.click();
 		URL.revokeObjectURL(url);
 	}
+	const sources = episode.sources.filter((src) => safeHttpsUrl(src.url));
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("article", {
 		className: "rounded-[var(--radius-xl)] border border-border bg-card p-5 sm:p-6",
 		children: [
@@ -325,20 +376,21 @@ function EpisodeView({ episode }) {
 								className: "mt-3 w-full",
 								controls: true,
 								src: audioUrl,
+								preload: "none",
 								children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("track", { kind: "captions" })
 							})
 						] }),
-						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						sources.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 							className: "mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground",
 							children: "Sources"
 						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", {
 							className: "space-y-1.5",
-							children: episode.sources.map((src) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", {
+							children: sources.map((src) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", {
 								className: "text-sm",
 								children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", {
 									href: src.url,
 									target: "_blank",
-									rel: "noreferrer",
+									rel: "noopener noreferrer nofollow",
 									className: "text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground",
 									children: src.title
 								})
@@ -395,7 +447,7 @@ function EpisodeView({ episode }) {
 			})
 		]
 	});
-}
+});
 function Block({ label, body }) {
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 		className: "mb-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground",
@@ -416,20 +468,22 @@ function KeyDialog() {
 	const keyOk = useStudio((s) => s.keyOk);
 	const setApiKey = useStudio((s) => s.setApiKey);
 	const setKeyOk = useStudio((s) => s.setKeyOk);
+	const clearKey = useStudio((s) => s.clearKey);
 	const [open, setOpen] = (0, import_react.useState)(false);
 	const [busy, setBusy] = (0, import_react.useState)(false);
-	const [draft, setDraft] = (0, import_react.useState)(apiKey);
+	const [draft, setDraft] = (0, import_react.useState)("");
 	async function save() {
 		setBusy(true);
 		try {
-			setApiKey(draft.trim());
-			const res = await testGroqKey({ data: { apiKey: draft.trim() } });
+			const key = assertGroqKey(draft);
+			setApiKey(key);
+			const res = await testGroqKey({ data: { apiKey: key } });
 			setKeyOk(true);
 			toast.success(`Groq connected · ${res.modelCount} models`);
 			setOpen(false);
 		} catch (e) {
 			setKeyOk(false);
-			toast.error(e instanceof Error ? e.message : "Key rejected");
+			toast.error(redactSecrets(e instanceof Error ? e.message : "Key rejected"));
 		} finally {
 			setBusy(false);
 		}
@@ -439,7 +493,7 @@ function KeyDialog() {
 		size: "sm",
 		type: "button",
 		onClick: () => {
-			setDraft(useStudio.getState().apiKey);
+			setDraft("");
 			setOpen(true);
 		},
 		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(KeyRound, {}), keyOk ? "Groq connected" : apiKey ? "Key not verified" : "Add Groq key"]
@@ -474,7 +528,7 @@ function KeyDialog() {
 				}),
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 					className: "mb-4 text-sm text-pretty text-muted-foreground",
-					children: "Create a key in the Groq console. It stays in this browser and is sent only to Groq when you generate a pack or a voiceover."
+					children: "Paste a key from console.groq.com. It lives in session storage for this tab only — never localStorage, never the repo. Closing the tab drops it."
 				}),
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("label", {
 					className: "mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground",
@@ -483,23 +537,37 @@ function KeyDialog() {
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
 					type: "password",
 					autoComplete: "off",
+					spellCheck: false,
 					value: draft,
 					onChange: (e) => setDraft(e.target.value),
 					placeholder: "gsk_…"
 				}),
 				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-					className: "mt-4 flex justify-end gap-2",
-					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
-						variant: "secondary",
-						type: "button",
-						onClick: () => setOpen(false),
-						children: "Cancel"
-					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
-						type: "button",
-						onClick: () => void save(),
-						disabled: busy || !draft.trim(),
-						children: [busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, { className: "animate-spin" }) : null, "Save and test"]
-					})]
+					className: "mt-4 flex flex-wrap justify-end gap-2",
+					children: [
+						apiKey ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							variant: "ghost",
+							type: "button",
+							onClick: () => {
+								clearKey();
+								setDraft("");
+								toast.success("Key cleared");
+							},
+							children: "Clear"
+						}) : null,
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							variant: "secondary",
+							type: "button",
+							onClick: () => setOpen(false),
+							children: "Cancel"
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Button, {
+							type: "button",
+							onClick: () => void save(),
+							disabled: busy || !draft.trim(),
+							children: [busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, { className: "animate-spin" }) : null, "Save and test"]
+						})
+					]
 				})
 			]
 		})]
@@ -577,6 +645,7 @@ function Producer() {
 			toast.error("Add a Groq Cloud API key first.");
 			return;
 		}
+		if (busy) return;
 		s.setStatus("researching");
 		s.setError(null);
 		try {
@@ -591,7 +660,7 @@ function Producer() {
 			s.saveEpisode(ep);
 			toast.success(ep.title);
 		} catch (e) {
-			const msg = e instanceof Error ? e.message : "Produce failed";
+			const msg = redactSecrets(e instanceof Error ? e.message : "Produce failed");
 			s.setStatus("error");
 			s.setError(msg);
 			toast.error(msg);
@@ -610,7 +679,7 @@ function Producer() {
 					children: "Produce a pack"
 				})] }), busy && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
 					className: "flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground",
-					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, { className: "size-3.5 animate-spin" }), "Researching          "]
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, { className: "size-3.5 animate-spin" }), "Researching"]
 				})]
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("label", {
@@ -619,6 +688,7 @@ function Producer() {
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Textarea, {
 				value: s.topic,
+				maxLength: LIMITS.topic,
 				onChange: (e) => s.setTopic(e.target.value),
 				placeholder: "Leave blank to let Compound pick a fact, or name a subject — HBM, lithography, BGP, TLS 1.3…",
 				rows: 3
@@ -694,6 +764,7 @@ function Home() {
 	const current = useStudio((s) => s.current);
 	(0, import_react.useEffect)(() => {
 		useStudio.persist.rehydrate();
+		useStudio.getState().hydrateSession();
 	}, []);
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 		className: "min-h-dvh",

@@ -14,6 +14,7 @@ function Home() {
 
   useEffect(() => {
     void useStudio.persist.rehydrate();
+    useStudio.getState().hydrateSession();
   }, []);
 
   return (

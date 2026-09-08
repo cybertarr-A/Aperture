@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { DOMAINS, type Domain } from "@/lib/episode";
 import { produceEpisode } from "@/lib/produce";
+import { LIMITS, redactSecrets } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 
@@ -16,11 +17,13 @@ const FORMATS: Array<{ label: string; aspect: "9:16" | "16:9"; duration: 15 | 36
 export function Producer() {
   const s = useStudio();
   const busy = s.status === "researching";
+
   async function generate() {
     if (!s.apiKey.trim()) {
       toast.error("Add a Groq Cloud API key first.");
       return;
     }
+    if (busy) return;
     s.setStatus("researching");
     s.setError(null);
     try {
@@ -37,7 +40,7 @@ export function Producer() {
       s.saveEpisode(ep);
       toast.success(ep.title);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Produce failed";
+      const msg = redactSecrets(e instanceof Error ? e.message : "Produce failed");
       s.setStatus("error");
       s.setError(msg);
       toast.error(msg);
@@ -56,7 +59,8 @@ export function Producer() {
         {busy && (
           <span className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
             <LoaderCircle className="size-3.5 animate-spin" />
-            Researching          </span>
+            Researching
+          </span>
         )}
       </div>
 
@@ -65,6 +69,7 @@ export function Producer() {
       </label>
       <Textarea
         value={s.topic}
+        maxLength={LIMITS.topic}
         onChange={(e) => s.setTopic(e.target.value)}
         placeholder="Leave blank to let Compound pick a fact, or name a subject — HBM, lithography, BGP, TLS 1.3…"
         rows={3}

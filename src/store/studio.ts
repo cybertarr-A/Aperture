@@ -7,6 +7,8 @@ import {
   type Episode,
   type VoiceId,
 } from "@/lib/episode";
+import { LIMITS, compactEpisode } from "@/lib/sanitize";
+import { readSessionKey, writeSessionKey } from "@/lib/session-key";
 
 type Status = "idle" | "researching" | "ready" | "error";
 
@@ -33,7 +35,8 @@ type StudioState = {
   setStatus: (v: Status) => void;
   setError: (v: string | null) => void;
   setAudioUrl: (v: string | null) => void;
-  loadSample: () => void;
+  hydrateSession: () => void;
+  clearKey: () => void;
   saveEpisode: (ep: Episode) => void;
   selectEpisode: (id: string) => void;
   removeEpisode: (id: string) => void;
@@ -54,10 +57,13 @@ export const useStudio = create<StudioState>()(
       status: "idle",
       error: null,
       audioUrl: null,
-      setApiKey: (apiKey) => set({ apiKey, keyOk: null }),
+      setApiKey: (apiKey) => {
+        writeSessionKey(apiKey);
+        set({ apiKey, keyOk: null });
+      },
       setKeyOk: (keyOk) => set({ keyOk }),
       setDomain: (domain) => set({ domain }),
-      setTopic: (topic) => set({ topic }),
+      setTopic: (topic) => set({ topic: topic.slice(0, LIMITS.topic) }),
       setAspectRatio: (aspectRatio) => set({ aspectRatio }),
       setDuration: (durationSeconds) => set({ durationSeconds }),
       setVoice: (voice) => set({ voice }),
@@ -68,11 +74,21 @@ export const useStudio = create<StudioState>()(
         if (prev) URL.revokeObjectURL(prev);
         set({ audioUrl });
       },
-      loadSample: () => set({ current: SAMPLE_EPISODE, audioUrl: null, error: null }),
+      hydrateSession: () => {
+        const apiKey = readSessionKey();
+        if (apiKey) set({ apiKey });
+      },
+      clearKey: () => {
+        writeSessionKey("");
+        set({ apiKey: "", keyOk: null });
+      },
       saveEpisode: (ep) =>
         set((s) => ({
           current: ep,
-          library: [ep, ...s.library.filter((e) => e.id !== ep.id)].slice(0, 40),
+          library: [compactEpisode(ep), ...s.library.filter((e) => e.id !== ep.id)].slice(
+            0,
+            LIMITS.library,
+          ),
           status: "ready",
           error: null,
           audioUrl: null,
@@ -94,14 +110,13 @@ export const useStudio = create<StudioState>()(
       name: "aperture-studio",
       skipHydration: true,
       partialize: (s) => ({
-        apiKey: s.apiKey,
         domain: s.domain,
         topic: s.topic,
         aspectRatio: s.aspectRatio,
         durationSeconds: s.durationSeconds,
         voice: s.voice,
-        current: s.current,
-        library: s.library,
+        current: s.current ? compactEpisode(s.current) : null,
+        library: s.library.map(compactEpisode).slice(0, LIMITS.library),
       }),
     },
   ),

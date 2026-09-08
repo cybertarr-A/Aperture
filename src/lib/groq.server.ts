@@ -1,9 +1,11 @@
+import { LIMITS, redactSecrets } from "./sanitize";
+
 const GROQ = "https://api.groq.com/openai/v1";
 
 export class GroqError extends Error {
   status: number;
   constructor(message: string, status = 500) {
-    super(message);
+    super(redactSecrets(message));
     this.name = "GroqError";
     this.status = status;
   }
@@ -12,7 +14,7 @@ export class GroqError extends Error {
 function groqMessage(json: unknown, fallback: string): string {
   if (json && typeof json === "object" && "error" in json) {
     const err = (json as { error?: { message?: string } }).error;
-    if (err?.message) return err.message;
+    if (err?.message) return redactSecrets(err.message);
   }
   return fallback;
 }
@@ -30,8 +32,8 @@ async function groqFetch(
       ...init,
       signal: ctrl.signal,
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         ...(init.headers ?? {}),
+        Authorization: `Bearer ${apiKey}`,
       },
     });
     return res;
@@ -45,11 +47,8 @@ async function groqFetch(
   }
 }
 
-export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
-
 export type ChatResult = {
   content: string;
-  executedTools: unknown[];
 };
 
 export async function groqChat(
@@ -63,23 +62,20 @@ export async function groqChat(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ max_tokens: 4096, ...body }),
     },
     timeoutMs,
   );
   const json = (await res.json()) as {
     error?: { message?: string };
-    choices?: Array<{
-      message?: { content?: string; executed_tools?: unknown[] };
-    }>;
+    choices?: Array<{ message?: { content?: string } }>;
   };
   if (!res.ok) {
     throw new GroqError(groqMessage(json, res.statusText), res.status);
   }
-  const message = json.choices?.[0]?.message;
-  const content = message?.content?.trim() ?? "";
+  const content = json.choices?.[0]?.message?.content?.trim() ?? "";
   if (!content) throw new GroqError("Groq returned an empty reply.");
-  return { content, executedTools: message?.executed_tools ?? [] };
+  return { content };
 }
 
 export async function groqSpeech(
@@ -95,7 +91,7 @@ export async function groqSpeech(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "canopylabs/orpheus-v1-english",
-        input,
+        input: input.slice(0, LIMITS.speech),
         voice,
         response_format: "wav",
       }),
@@ -112,17 +108,20 @@ export async function groqSpeech(
     throw new GroqError(groqMessage(json, res.statusText), res.status);
   }
   const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.byteLength > LIMITS.audioBytes) {
+    throw new GroqError("Voiceover exceeded size cap.");
+  }
   return { mime: "audio/wav", base64: buf.toString("base64") };
 }
 
-export async function groqListModels(apiKey: string): Promise<string[]> {
+export async function groqListModels(apiKey: string): Promise<number> {
   const res = await groqFetch(apiKey, "/models", { method: "GET" }, 15000);
   const json = (await res.json()) as {
     error?: { message?: string };
-    data?: Array<{ id?: string }>;
+    data?: unknown[];
   };
   if (!res.ok) {
     throw new GroqError(groqMessage(json, res.statusText), res.status);
   }
-  return (json.data ?? []).map((m) => m.id).filter((id): id is string => Boolean(id));
+  return json.data?.length ?? 0;
 }

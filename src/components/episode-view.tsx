@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Download, LoaderCircle, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { episodeMarkdown, type Episode } from "@/lib/episode";
 import { speakScript } from "@/lib/produce";
+import { redactSecrets, safeFilename, safeHttpsUrl } from "@/lib/sanitize";
 import { useStudio } from "@/store/studio";
 
-export function EpisodeView({ episode }: { episode: Episode }) {
+export const EpisodeView = memo(function EpisodeView({ episode }: { episode: Episode }) {
   const apiKey = useStudio((s) => s.apiKey);
   const voice = useStudio((s) => s.voice);
   const audioUrl = useStudio((s) => s.audioUrl);
@@ -21,6 +22,7 @@ export function EpisodeView({ episode }: { episode: Episode }) {
       toast.error("Add a Groq Cloud API key to generate voice.");
       return;
     }
+    if (speaking) return;
     setSpeaking(true);
     try {
       const { mime, base64 } = await speakScript({
@@ -30,7 +32,7 @@ export function EpisodeView({ episode }: { episode: Episode }) {
       const url = URL.createObjectURL(new Blob([bin], { type: mime }));
       setAudioUrl(url);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Voice failed");
+      toast.error(redactSecrets(e instanceof Error ? e.message : "Voice failed"));
     } finally {
       setSpeaking(false);
     }
@@ -41,10 +43,12 @@ export function EpisodeView({ episode }: { episode: Episode }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${episode.id}.md`;
+    a.download = safeFilename(episode.id);
     a.click();
     URL.revokeObjectURL(url);
   }
+
+  const sources = episode.sources.filter((src) => safeHttpsUrl(src.url));
 
   return (
     <article className="rounded-[var(--radius-xl)] border border-border bg-card p-5 sm:p-6">
@@ -92,31 +96,33 @@ export function EpisodeView({ episode }: { episode: Episode }) {
               </Button>
             </div>
             {audioUrl && (
-              <audio className="mt-3 w-full" controls src={audioUrl}>
+              <audio className="mt-3 w-full" controls src={audioUrl} preload="none">
                 <track kind="captions" />
               </audio>
             )}
           </div>
 
-          <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Sources
-            </p>
-            <ul className="space-y-1.5">
-              {episode.sources.map((src) => (
-                <li key={src.url} className="text-sm">
-                  <a
-                    href={src.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-                  >
-                    {src.title}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {sources.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Sources
+              </p>
+              <ul className="space-y-1.5">
+                {sources.map((src) => (
+                  <li key={src.url} className="text-sm">
+                    <a
+                      href={src.url}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+                    >
+                      {src.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <FramePreview episode={episode} />
@@ -153,7 +159,7 @@ export function EpisodeView({ episode }: { episode: Episode }) {
       </div>
     </article>
   );
-}
+});
 
 function Block({ label, body }: { label: string; body: string }) {
   return (

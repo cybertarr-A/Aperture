@@ -9,6 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 var ssr_exports = /* @__PURE__ */ __exportAll({
 	createServerEntry: () => createServerEntry,
 	default: () => server_default,
+	i: () => getRequest,
 	n: () => TSS_SERVER_FUNCTION,
 	r: () => getServerFnById,
 	t: () => createServerFn
@@ -74,6 +75,9 @@ function getH3Event() {
 	if (!event) throw new Error(`No StartEvent found in AsyncLocalStorage. Make sure you are using the function within the server runtime.`);
 	return event.h3Event;
 }
+function getRequest() {
+	return getH3Event().req;
+}
 function getResponse() {
 	return getH3Event().res;
 }
@@ -88,7 +92,7 @@ var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 * the dev styles URL for route-scoped CSS collection.
 */
 async function getStartManifest(matchedRoutes) {
-	const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-icfb8z8S.mjs");
+	const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-LLxTI4Q3.mjs");
 	const startManifest = tsrStartManifest();
 	let routes = startManifest.routes;
 	routes[rootRouteId];
@@ -110,15 +114,15 @@ async function getStartManifest(matchedRoutes) {
 var manifest = {
 	"4b3d8e784b31808f4aaf9eb31c6c668505f65f35627f1e45f9f971a8201d38a7": {
 		functionName: "testGroqKey_createServerFn_handler",
-		importer: () => import("./produce-kVWR-A_Y.mjs")
+		importer: () => import("./produce-78bmWZQp.mjs")
 	},
 	"61b541fdabb3ac26b7f646f28374af003893c5c0dcca440637c19f67f42a5013": {
 		functionName: "produceEpisode_createServerFn_handler",
-		importer: () => import("./produce-kVWR-A_Y.mjs")
+		importer: () => import("./produce-78bmWZQp.mjs")
 	},
 	"c6b7a39f89062deaf28ad2788605c7f5bff057160dd85599b93ab8fe07318a9b": {
 		functionName: "speakScript_createServerFn_handler",
-		importer: () => import("./produce-kVWR-A_Y.mjs")
+		importer: () => import("./produce-78bmWZQp.mjs")
 	}
 };
 async function getServerFnById(id, access) {
@@ -1388,7 +1392,7 @@ var getBaseManifest = getProdBaseManifest;
 var createEarlyHintsForRequest = createEarlyHintsCollector;
 async function loadEntries() {
 	const [routerEntry, startEntry, pluginAdapters] = await Promise.all([
-		import("./router-Cu8ryDCX.mjs").then((n) => n.t),
+		import("./router-BfduBpyi.mjs").then((n) => n.t),
 		import("./start-5Z2QO8AU.mjs"),
 		import("./empty-plugin-adapters-D9UWiqvJ.mjs")
 	]);
@@ -1834,4 +1838,4 @@ function createServerEntry(entry) {
 }
 var server_default = createServerEntry({ fetch });
 //#endregion
-export { createServerEntry, server_default as default, ssr_exports as i, TSS_SERVER_FUNCTION as n, getServerFnById as r, createServerFn as t };
+export { ssr_exports as a, createServerEntry, server_default as default, getRequest as i, TSS_SERVER_FUNCTION as n, getServerFnById as r, createServerFn as t };
